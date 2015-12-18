@@ -1,0 +1,5 @@
+#!/bin/bash
+
+touch /afile2
+
+cp -a dir /

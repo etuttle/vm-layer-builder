@@ -1,0 +1,109 @@
+#!/bin/bash
+
+shopt -s extglob
+
+out() { printf "$1 $2\n" "${@:3}"; }
+error() { out "==> ERROR:" "$@"; } >&2
+msg() { out "==>" "$@"; }
+msg2() { out "  ->" "$@";}
+die() { error "$@"; exit 1; }
+
+ignore_error() {
+  "$@" 2>/dev/null
+  return 0
+}
+
+chroot_add_mount() {
+  mount "$@" && CHROOT_ACTIVE_MOUNTS=("$2" "${CHROOT_ACTIVE_MOUNTS[@]}")
+}
+
+chroot_maybe_add_mount() {
+  local cond=$1; shift
+  if eval "$cond"; then
+    chroot_add_mount "$@"
+  fi
+}
+
+chroot_setup() {
+  CHROOT_ACTIVE_MOUNTS=()
+
+  NBD_MOUNT=$1
+  IMAGE=$2
+  NBD_DEVICE=$3
+
+  [[ $(trap -p EXIT) ]] && die '(BUG): attempting to overwrite existing EXIT trap'
+  trap 'chroot_teardown' EXIT
+
+  qemu-nbd --connect="$NBD_DEVICE" "$IMAGE" || return $?
+  sleep 1
+
+  chroot_add_mount "${NBD_DEVICE}p1" "$1"
+  chroot_maybe_add_mount "! mountpoint -q '$1'" "$1" "$1" --bind &&
+  chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
+  chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&
+  ignore_error chroot_maybe_add_mount "[[ -d '$1/sys/firmware/efi/efivars' ]]" \
+      efivarfs "$1/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev &&
+  chroot_add_mount udev "$1/dev" -t devtmpfs -o mode=0755,nosuid &&
+  chroot_add_mount devpts "$1/dev/pts" -t devpts -o mode=0620,gid=5,nosuid,noexec &&
+  chroot_add_mount shm "$1/dev/shm" -t tmpfs -o mode=1777,nosuid,nodev &&
+  chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,strictatime,nodev,nosuid
+}
+
+chroot_teardown() {
+  umount "${CHROOT_ACTIVE_MOUNTS[@]}"
+  unset CHROOT_ACTIVE_MOUNTS
+  [ -n "$NBD_DEVICE" ] && qemu-nbd --disconnect "$NBD_DEVICE" ||:
+  [ -d "$NBD_MOUNT" ] && rmdir "$NBD_MOUNT"
+}
+
+usage() {
+  cat <<EOF
+usage: ${0##*/} <image> <nbd_device> <entrypoint>
+
+    -h             Print this help message
+EOF
+}
+
+chroot_add_resolv_conf() {
+  local chrootdir=$1 resolv_conf=$1/etc/resolv.conf
+
+  # Handle resolv.conf as a symlink to somewhere else.
+  if [[ -L $chrootdir/etc/resolv.conf ]]; then
+    # readlink(1) should always give us *something* since we know at this point
+    # it's a symlink. For simplicity, ignore the case of nested symlinks.
+    resolv_conf=$(readlink "$chrootdir/etc/resolv.conf")
+    if [[ $resolv_conf = /* ]]; then
+      resolv_conf=$chrootdir$resolv_conf
+    else
+      resolv_conf=$chrootdir/etc/$resolv_conf
+    fi
+
+    # ensure file exists to bind mount over
+    if [[ ! -f $resolv_conf ]]; then
+      install -Dm644 /dev/null "$resolv_conf" || return 1
+    fi
+  elif [[ ! -e $chrootdir/etc/resolv.conf ]]; then
+    # The chroot might not have a resolv.conf.
+    return 0
+  fi
+
+  chroot_add_mount /etc/resolv.conf "$resolv_conf" --bind
+}
+
+if [[ -z $1 || $1 = @(-h|--help) ]]; then
+  usage
+  exit $(( $# ? 0 : 1 ))
+fi
+
+(( EUID == 0 )) || die 'This script must be run with root privileges'
+image="$1"
+nbd_device="$2"
+entrypoint="$3"
+image_dir="$(mktemp -d --tmpdir)"
+
+chroot_setup "$image_dir" "$image" "$nbd_device" || die "failed to setup chroot %s" "$image_dir"
+chroot_add_resolv_conf "$image_dir" || die "failed to setup resolv.conf"
+[ ! -d "${image_dir}/mnt" ] && mkdir "${image_dir}/mnt"
+chroot_add_mount "$(dirname $(realpath $entrypoint))" "${image_dir}/mnt" --bind
+
+unshare --fork --pid chroot "$image_dir" sh -c "cd /mnt; exec /mnt/"$(basename $entrypoint)

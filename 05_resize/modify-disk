@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+
+if [ "$#" -ne 3 ]; then
+    echo >&2 "Usage: $0 <source> <target> <device>"
+    exit 1
+fi
+
+source="$1"
+target="$2"
+device="$3"
+
+qemu-img create -f qcow2 -b "$source" "$target" 20G
+
+qemu-nbd --connect="$device" "$target"
+
+trap "qemu-nbd --disconnect $device" EXIT
+
+sleep 1
+
+growpart "$device" 1
+
+e2fsck -f "${device}p1"
+resize2fs -f "${device}p1"

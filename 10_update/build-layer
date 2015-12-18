@@ -1,0 +1,5 @@
+#!/bin/bash
+
+yum -y update
+
+touch /afile

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+image=${1:-$(dirname $0)/../build/image.qcow2}
+
+qemu-system-x86_64 \
+  --enable-kvm \
+  -snapshot \
+  -nographic \
+  -net nic \
+  -net bridge \
+  -m 512 \
+  -drive "file=${image},if=virtio" \
+  -drive "file="$(dirname $0)"/../test-boot/cloud-init.img,if=virtio"

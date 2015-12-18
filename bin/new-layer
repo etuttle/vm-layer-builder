@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+  echo >&2 "Usage: $0 <layer_name>"
+  exit 1
+fi
+
+if [ -e "$1" ]; then
+  echo >&2 "$1 already exists"
+  exit 1
+fi
+
+mkdir "$1"
+echo "#!/bin/bash
+" > "$1/build-layer"
+
+chmod +x "$1/build-layer"
