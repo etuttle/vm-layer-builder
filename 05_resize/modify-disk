@@ -11,7 +11,7 @@ source="$1"
 target="$2"
 device="$3"
 
-qemu-img create -f qcow2 -b "$source" "$target" 20G
+qemu-img create -f qcow2 -b "$source" -o compat=0.10 "$target" 20G
 
 qemu-nbd --connect="$device" "$target"
 

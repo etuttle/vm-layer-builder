@@ -48,7 +48,7 @@ def generate_env():
     # the command string is part of scons' cache signature.
     build_layer="""
 cd ${TARGET.dir} \
-&& qemu-img create -f qcow2 -b ${SRC_REL_TARGET} ${TARGET.file} \
+&& qemu-img create -f qcow2 -b ${SRC_REL_TARGET} -o compat=0.10 ${TARGET.file} \
 && cd ${ROOT_REL_TARGET}/${SOURCES[1]} \
 && sudo ${ROOT_REL_SRC}/bin/qemu-chroot \
     ${ROOT_REL_SRC}/${TARGET} $( ${NBD_DEVICE} $) ./build-layer
@@ -69,7 +69,7 @@ cd ${TARGET.dir} \
     # Command to merge layers into an output image.
     merge_layers="""
 cd ${TARGET.dir} \
-&& qemu-img create -f qcow2 -b ${SRC_REL_TARGET} ${TARGET.file} \
+&& qemu-img create -f qcow2 -b ${SRC_REL_TARGET} -o compat=0.10 ${TARGET.file} \
 && qemu-img rebase -p -b '' ${TARGET.file}
     """
 
