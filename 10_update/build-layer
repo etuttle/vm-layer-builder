@@ -2,4 +2,3 @@
 
 yum -y update
 
-touch /afile
