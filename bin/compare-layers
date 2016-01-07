@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Creating a .dar of the delta between layers:
+# dar -c before-cfe -A + -R a/
+# dar -c after-cfe -A before-cfe -R b/ -P var/cfengine -P var/lib/yum -P var/lib/rpm
+#
+# Extracting the delta:
+# mkdir after-cfe
+# dar -x after-cfe -R after-cfe -D -O --exclude-ea '*'
+
+if [ "$#" -ne 4 ]; then
+  echo >&2 "Usage: $0 <img1> <device1> <img2> <device2>"
+  exit 1
+fi
+
+img1="$1"
+device1="$2"
+img2="$3"
+device2="$4"
+
+main() {
+  pdir="$(mktemp -d --tmpdir)"
+  trap_add "$(printf 'rmdir -- %q' "$pdir")" EXIT
+
+  dir1="${pdir}/a"
+  make_subdir "$dir1"
+  dir2="${pdir}/b"
+  make_subdir "$dir2"
+
+  connect "$device1" "$img1"
+  connect "$device2" "$img2"
+
+  sleep 1
+
+  mount_p1 "$device1" "$dir1"
+  mount_p1 "$device2" "$dir2"
+
+  sh -c "cd '$pdir'; exec '${SHELL:-sh}'"
+}
+
+die() { echo "$@"; exit 1; }
+
+trap_add() {
+  trap_add_cmd=$1; shift || die "${FUNCNAME} usage error"
+  for trap_add_name in "$@"; do
+    trap -- "$(
+      printf '%s\n' "${trap_add_cmd}"
+      extract_trap_cmd() { printf '%s' "$3"; }
+      eval "extract_trap_cmd $(trap -p "${trap_add_name}")"
+    )" "${trap_add_name}" \
+      || die "unable to add to trap ${trap_add_name}"
+  done
+}
+
+make_subdir() {
+  mkdir "$1"
+  trap_add "$(printf 'rmdir -- %q' "$1")" EXIT
+}
+
+connect() {
+  qemu-nbd --connect="$1" "$2" || die "failed to connect"
+  trap_add "$(printf 'qemu-nbd --disconnect %q' "$1")" EXIT
+}
+
+mount_p1() {
+  mount "${1}p1" "$2" || die "failed to mount"
+  trap_add "$(printf 'umount %q' "$2")" EXIT
+}
+
+main
