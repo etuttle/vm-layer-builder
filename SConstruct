@@ -51,7 +51,7 @@ cd ${TARGET.dir} \
 && qemu-img create -f qcow2 -b ${SRC_REL_TARGET} -o compat=0.10 ${TARGET.file} \
 && cd ${ROOT_REL_TARGET}/${SOURCES[1]} \
 && sudo ${ROOT_REL_SRC}/bin/qemu-chroot \
-    ${ROOT_REL_SRC}/${TARGET} $( ${NBD_DEVICE} $) ./build-layer
+    --image ${ROOT_REL_SRC}/${TARGET} --device $( ${NBD_DEVICE} $) --mount-entrypoint ./build-layer
     """
 
     env['BUILDERS']['Layer'] = Builder(action=build_layer)

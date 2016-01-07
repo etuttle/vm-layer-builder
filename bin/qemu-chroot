@@ -58,9 +58,13 @@ chroot_teardown() {
 
 usage() {
   cat <<EOF
-usage: ${0##*/} <image> <nbd_device> <entrypoint>
-
-    -h             Print this help message
+usage: ${0##*/} <image> <nbd_device> <command...>
+    --bind-mount, -b <source> <target> Mount source at target in the chroot
+    --device, -d <nbd-device> Available nbd device (required)
+    --help, -h Print this help message
+    --host <fqdn> Set the hostname in the chroot (requires chname utility)
+    --image, -i <image-file> Image to mount (required)
+    --mount-entrypoint Mount directory containing command[0] in the chroot at /mnt
 EOF
 }
 
@@ -90,20 +94,107 @@ chroot_add_resolv_conf() {
   chroot_add_mount /etc/resolv.conf "$resolv_conf" --bind
 }
 
-if [[ -z $1 || $1 = @(-h|--help) ]]; then
-  usage
-  exit $(( $# ? 0 : 1 ))
-fi
+chroot_setup_hostname() {
+  nbd_mount="$1"
+  fqdn="$2"
+  host="$3"
+
+  echo "127.0.0.1 $fqdn $host
+127.0.0.1 localhost.localdomain localhost
+127.0.0.1 localhost4.localdomain4 localhost4
+::1 $fqdn $host
+::1 localhost.localdomain localhost
+::1 localhost6.localdomain6 localhost6" > $nbd_mount/tmp/etc_hosts
+
+  chroot_add_mount $nbd_mount/tmp/etc_hosts $nbd_mount/etc/hosts --bind -o ro
+}
+
+command=()
+image=
+nbd_device=
+
+while [[ $# > 0 ]]
+do
+  key="$1"
+  case $key in
+    -b|--bind-mount)
+      extra_mounts=("$2" "${extra_mounts[@]}")
+      extra_mount_targets=("$3" "${extra_mount_targets[@]}")
+      shift 2
+      ;;
+    -d|--device)
+      nbd_device="$2"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit
+      ;;
+    --host)
+      fqdn="$2"
+      shift
+      ;;
+    -i|--image)
+      image="$2"
+      shift
+      ;;
+    -m|--mount-entrypoint)
+      mount_entrypoint=true
+      ;;
+    *)
+      command=("${command[@]}" "$key")
+      ;;
+  esac
+shift
+done
 
 (( EUID == 0 )) || die 'This script must be run with root privileges'
-image="$1"
-nbd_device="$2"
-entrypoint="$3"
+
+if [[ -z $image || -z $nbd_device ]]; then
+  usage
+  exit 1
+fi
+
 image_dir="$(mktemp -d --tmpdir)"
 
 chroot_setup "$image_dir" "$image" "$nbd_device" || die "failed to setup chroot %s" "$image_dir"
 chroot_add_resolv_conf "$image_dir" || die "failed to setup resolv.conf"
-[ ! -d "${image_dir}/mnt" ] && mkdir "${image_dir}/mnt"
-chroot_add_mount "$(dirname $(realpath $entrypoint))" "${image_dir}/mnt" --bind
 
-unshare --fork --pid chroot "$image_dir" sh -c "cd /mnt; exec /mnt/"$(basename $entrypoint)
+for ((i=0;i<${#extra_mounts[@]};++i)); do
+  chroot_add_mount "${extra_mounts[i]}" "${image_dir}${extra_mount_targets[i]}" --bind \
+    || die "failed to setup extra mount"
+done
+
+chroot_command=(unshare --fork --pid --mount-proc="$image_dir/proc" chroot "$image_dir")
+
+if [[ -n "$mount_entrypoint" ]]; then
+  [[ ! -d "${image_dir}/mnt" ]] && mkdir "${image_dir}/mnt"
+  entrypoint_dir="$(dirname "$(realpath "${command[0]}")")"
+  chroot_add_mount "${entrypoint_dir}" "${image_dir}/mnt" --bind \
+    || die "failed to mount entrypoint dir"
+
+  # setup extra mounts from chroot-mounts comments in entrypoint script
+  IFS=$'\n'
+  mount_strs=($(sed -n 's/# chroot-mount \(.*\)/\1/p' "${command[0]}"))
+  unset IFS
+  for mount_str in "${mount_strs[@]}"; do
+    read source target <<< $mount_str
+    mkdir -p "${image_dir}${target}"
+    chroot_add_mount "${entrypoint_dir}/${source}" "${image_dir}${target}" --bind \
+      || die "failed mount from chroot-mount comment"
+  done
+
+  command_copy=("${command[@]}")
+  command_copy[0]="./$(basename "${command_copy[0]}")"
+  chroot_command=("${chroot_command[@]}" sh -c 'cd /mnt; exec "$@"' -- "${command_copy[@]}")
+else
+  chroot_command=("${chroot_command[@]}" "${command[@]}")
+fi
+
+if [ -n "$fqdn" ]; then
+  host="$(echo $fqdn | awk -F. '{ print $1 }')"
+  chroot_setup_hostname "$image_dir" "$fqdn" "$host"
+  chroot_command=(chname "$host" "${chroot_command[@]}")
+fi
+
+"${chroot_command[@]}"
