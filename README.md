@@ -147,3 +147,9 @@ sudo gpasswd -a $USER kvm
 echo "allow br0" | sudo tee -a /etc/qemu-kvm/bridge.conf
 sudo reboot
 ```
+
+## Generating a cloud-localds image
+
+cloud-localds test-boot/cloud-init.img test-boot/user-data.yaml test-boot/meta-data.yaml
+
+virsh attach-device sfo2-dev-vmdev019.sfo2.zoosk.com cloud-disk.xml --config
