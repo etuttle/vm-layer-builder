@@ -50,7 +50,7 @@ chroot_setup() {
 }
 
 chroot_teardown() {
-  umount "${CHROOT_ACTIVE_MOUNTS[@]}"
+  umount --recursive "${CHROOT_ACTIVE_MOUNTS[@]}"
   unset CHROOT_ACTIVE_MOUNTS
   [ -n "$NBD_DEVICE" ] && qemu-nbd --disconnect "$NBD_DEVICE" ||:
   [ -d "$NBD_MOUNT" ] && rmdir "$NBD_MOUNT"
