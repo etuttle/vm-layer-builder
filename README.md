@@ -39,7 +39,9 @@ During a build, the `build-layer` script is called in a chroot, with its folder 
 
 To run a build:
 
-`scons --nbd=/dev/nbd0`  (use an available nbd device)
+`scons --cache-debug=- --nbd=/dev/nbd0`  (use an available nbd device)
+
+Cache-debug is recommended to see the cache signatures that scons has generated for each layer.
 
 Output will be at `build/image.qcow2`.
 
