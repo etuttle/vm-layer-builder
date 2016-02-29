@@ -13,6 +13,9 @@ if not GetOption('nbd'):
     print "-" * 35 + "> Missing required parameter: --nbd"
     Return()
 
+AddOption('--flatten', action="store_true", default=False,
+          help='flatten the final layer into image.qcow2')
+
 
 def create_targets(env):
     """Creates the series of output targets"""
@@ -29,7 +32,11 @@ def create_targets(env):
 
         next_base = image
 
-    env.MergeLayers('build/image.qcow2', [next_base])
+    if GetOption('flatten'):
+        env.MergeLayers('build/image.qcow2', [next_base])
+    else:
+        env.LinkLayers('build/image.qcow2', [next_base])
+
     NoCache('build/image.qcow2')
 
 
@@ -74,6 +81,10 @@ cd ${TARGET.dir} \
     """
 
     env['BUILDERS']['MergeLayers'] = Builder(action=merge_layers)
+
+    # Command to symlink a layer to another
+    link_layers="ln -sf ${SOURCE.file} ${TARGET}"
+    env['BUILDERS']['LinkLayers'] = Builder(action=link_layers)
 
     return env
 

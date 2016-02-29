@@ -37,7 +37,7 @@ layer folders can be created with `./bin/new-layer <layer-name>`.
 
 During a build, the `build-layer` script is called in a chroot, with its folder mounted at /mnt.
 
-To run a build:
+To build an image:
 
 `scons --cache-debug=- --nbd=/dev/nbd0`  (use an available nbd device)
 
@@ -45,7 +45,12 @@ Cache-debug is recommended to see the cache signatures that scons has generated 
 
 Output will be at `build/image.qcow2`.
 
-Do a test boot with qemu (non-descructive - filesystem changes are discarded): 
+By default, the image is not flattened into a single file because this process can take a few
+minutes.  Rather `build/image.qcow2` is a symlink to the last layer, which allows
+commands like test-boot to work.  To build and flatten the layers into `image.qcow2`, add
+`--flatten` to the arguments.
+
+Do a test boot with qemu (does not modify the image - filesystem changes are discarded): 
 
 `./bin/test-boot`
 
