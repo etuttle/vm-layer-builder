@@ -23,12 +23,22 @@ def create_targets(env):
 
     for dir in get_layer_dirs():
         image = 'build/%s.qcow2' % dir
-        if isfile(join(dir, 'build-layer')):
+        build_layer = join(dir, 'build-layer')
+        modify_disk = join(dir, 'modify-disk')
+        if isfile(build_layer):
             env.Layer(image, [next_base] + Recurse(dir))
-        elif isfile(join(dir, 'modify-disk')):
+            script = build_layer
+        elif isfile(modify_disk):
             env.DiskMod(image, [next_base] + Recurse(dir))
+            script = modify_disk
         else:
             continue
+
+        with open(script, 'r') as f:
+            for line in f:
+                if line.startswith('# nocache'):
+                    NoCache(image)
+                    break
 
         next_base = image
 

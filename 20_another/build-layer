@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# nocache (this hint tells vm-layer-builder to not cache the layer)
+
 touch /afile2
 
 cp -a dir /

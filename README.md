@@ -32,10 +32,14 @@ Incremental changes can be periodically "rolled up" into a base layer.
  
 The base image is defined in `SConstruct` (for the time being).  Download it into the working copy.
   
-The script looks for folders with names matching \d\d_name, with a `build-layer` script inside.  New
-layer folders can be created with `./bin/new-layer <layer-name>`.
+The script looks for folders with names matching \d\d_name, with a `build-layer` or `modify-disk`
+script inside.  New layer folders can be created with `./bin/new-layer <layer-name>`.
 
-During a build, the `build-layer` script is called in a chroot, with its folder mounted at /mnt.
+Layers are cached by default.  However if a layer and its children are deterministic and quick to
+build, there's no reason to cache it -- and it's cache only serves to clutter up the cache dir.
+You can disable the cache for such layers by adding a `# nocache` hint to the script file.
+
+During a build, the script for each layer is called in a chroot, with its folder mounted at /mnt.
 
 To build an image:
 
