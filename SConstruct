@@ -104,7 +104,7 @@ def get_layer_dirs():
     root = Dir('#').path
     layer_dirs = [dir for dir in listdir(root) if isdir(dir)
                   and re.match('^[0-9]{2,}_', basename(dir))]
-    return layer_dirs
+    return sorted(layer_dirs)
 
 
 def Recurse(dir):
