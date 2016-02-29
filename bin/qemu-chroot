@@ -197,4 +197,9 @@ if [ -n "$fqdn" ]; then
   chroot_command=(chname "$host" "${chroot_command[@]}")
 fi
 
-"${chroot_command[@]}"
+set -m
+"${chroot_command[@]}" &
+trap '' EXIT
+trap "kill -9 -$!" HUP INT TERM
+wait
+chroot_teardown
