@@ -1,21 +1,4 @@
 #!/bin/bash
 
-# the yum in CentOS6 doesn't die on TERM, so convert TERM into KILL
-
-function yum() {
-  /usr/bin/yum "$@" &
-  yum_child=$!
-  wait "$yum_child"
-  unset yum_child
-}
-
-function term_yum() {
-  kill -9 "$yum_child" 2> /dev/null
-}
-
-trap term_yum SIGTERM
-
-# end fix for yum TERM
-
 yum -y update
 

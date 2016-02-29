@@ -50,8 +50,13 @@ chroot_setup() {
 }
 
 chroot_teardown() {
-  umount --recursive "${CHROOT_ACTIVE_MOUNTS[@]}"
-  unset CHROOT_ACTIVE_MOUNTS
+  if [[ -n $CHROOT_ACTIVE_MOUNTS ]]; then
+    while ! fuser -s "${CHROOT_ACTIVE_MOUNTS[@]}"; do
+      sleep 1
+    done
+    umount --recursive "${CHROOT_ACTIVE_MOUNTS[@]}"
+    unset CHROOT_ACTIVE_MOUNTS
+  fi
   [ -n "$NBD_DEVICE" ] && qemu-nbd --disconnect "$NBD_DEVICE" ||:
   [ -d "$NBD_MOUNT" ] && rmdir "$NBD_MOUNT"
 }
@@ -197,9 +202,4 @@ if [ -n "$fqdn" ]; then
   chroot_command=(chname "$host" "${chroot_command[@]}")
 fi
 
-set -m
-"${chroot_command[@]}" &
-trap '' EXIT
-trap "kill -9 -$!" HUP INT TERM
-wait
-chroot_teardown
+"${chroot_command[@]}"
