@@ -30,8 +30,6 @@ Incremental changes can be periodically "rolled up" into a base layer.
 
 ## Usage
  
-The base image is defined in `SConstruct` (for the time being).  Download it into the working copy.
-  
 The script looks for folders with names matching \d\d_name, with a `build-layer` or `modify-disk`
 script inside.  New layer folders can be created with `./bin/new-layer <layer-name>`.
 

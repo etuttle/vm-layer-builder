@@ -2,8 +2,6 @@ from os import listdir, walk
 from os.path import isdir, isfile, basename, join, relpath
 import re
 
-BASE_IMAGE = 'CentOS-6-x86_64-GenericCloud-1510.qcow2'
-
 CacheDir('build_cache')
 
 AddOption('--nbd', type='string', metavar='DEVICE',
@@ -17,9 +15,25 @@ AddOption('--flatten', action="store_true", default=False,
           help='flatten the final layer into image.qcow2')
 
 
+def download_base_image():
+    base_name = 'CentOS-6-x86_64-GenericCloud-1510.qcow2'
+    image = 'build/%s' % base_name
+    md5sum = 'fe5c8d4469e6925d6cbb20b830b9d1ac'
+
+    dl_env = Environment()
+    dl_env.Decider(lambda dependency, target, prev_ni: target.get_csig() != md5sum)
+    dl_env.Command(image, '/bin/true', """
+cd build && \
+curl --silent -O http://cloud.centos.org/centos/6/images/{0}.xz && \
+xz -d {0}.xz
+""".format(base_name))
+    NoCache(image)
+    return image
+
+
 def create_targets(env):
     """Creates the series of output targets"""
-    next_base = BASE_IMAGE
+    next_base = download_base_image()
 
     for dir in get_layer_dirs():
         image = 'build/%s.qcow2' % dir
