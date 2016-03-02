@@ -35,10 +35,6 @@ The base image is defined in `SConstruct` (for the time being).  Download it int
 The script looks for folders with names matching \d\d_name, with a `build-layer` or `modify-disk`
 script inside.  New layer folders can be created with `./bin/new-layer <layer-name>`.
 
-Layers are cached by default.  However if a layer and its children are deterministic and quick to
-build, there's no reason to cache it -- and it's cache only serves to clutter up the cache dir.
-You can disable the cache for such layers by adding a `# nocache` hint to the script file.
-
 During a build, the script for each layer is called in a chroot, with its folder mounted at /mnt.
 
 To build an image:
@@ -59,6 +55,21 @@ Do a test boot with qemu (does not modify the image - filesystem changes are dis
 `./bin/test-boot`
 
 Type `^a x` to exit out of the qemu environment. 
+
+## Cache Options
+
+Layers are cached by default.  However if a layer and its children are deterministic and quick to
+build, there's no reason to cache it -- it's cache only serves to clutter up the cache dir.
+You can disable the cache for such layers by adding a `# nocache` hint to the script file.
+
+When using the s3_cache plugin, a `# noshare` hint will use the local scons cache but disable
+cache sharing for a layer.  This might be appropriate for layers that are deterministic
+but large.  Without `noshare`, they will cause an unnecessary and slow upload every time they are built. 
+
+It is pointless to cache layers that are decendants of uncached layers, since the cached output
+will only be reused if two builds produce byte-identical versions of the uncached
+parent layers.  Thus images should be organized with non-deterministic layers first (which should
+be cached), followed by noshare layers, followed by nocache layers.
 
 ## Requirements
 

@@ -26,10 +26,10 @@ def create_targets(env):
         build_layer = join(dir, 'build-layer')
         modify_disk = join(dir, 'modify-disk')
         if isfile(build_layer):
-            env.Layer(image, [next_base] + Recurse(dir))
+            nodes = env.Layer(image, [next_base] + Recurse(dir))
             script = build_layer
         elif isfile(modify_disk):
-            env.DiskMod(image, [next_base] + Recurse(dir))
+            nodes = env.DiskMod(image, [next_base] + Recurse(dir))
             script = modify_disk
         else:
             continue
@@ -39,6 +39,8 @@ def create_targets(env):
                 if line.startswith('# nocache'):
                     NoCache(image)
                     break
+                elif line.startswith('# noshare'):
+                    nodes[0].noshare = True
 
         next_base = image
 

@@ -108,15 +108,19 @@ def CachePushFunc(target, source, env):
         fs.symlink(fs.readlink(t.path), tempfile)
     else:
         fs.copy2(t.path, tempfile)
-        # Upload the file to S3 before linking it into place
-        tempfile_size = humanize.naturalsize(fs.getsize(tempfile), gnu=True)
-        cache_key = os.path.basename(cachefile)
-        cd.CacheDebug('CachePush(%%s):  pushing %%s to s3 (%s)\n' % tempfile_size, t, cachefile)
-        try:
-            s3_client.upload_file(tempfile, S3_BUCKET, cache_key,
-                                  ExtraArgs={'Metadata': {'VM-Layer': str(t)}})
-        except botocore.exceptions.ClientError as e:
-            raise EnvironmentError('boto exception %s' % e)
+        if t.__dict__.get('noshare', False):
+            cd.CacheDebug('CachePush(%s):  not pushing %s to s3 (noshare)\n', t, cachefile)
+        else:
+            # Upload the file to S3 before linking it into place
+            tempfile_size = humanize.naturalsize(fs.getsize(tempfile), gnu=True)
+            cache_key = os.path.basename(cachefile)
+            cd.CacheDebug('CachePush(%%s):  pushing %%s to s3 (%s)\n' % tempfile_size,
+                          t, cachefile)
+            try:
+                s3_client.upload_file(tempfile, S3_BUCKET, cache_key,
+                                      ExtraArgs={'Metadata': {'VM-Layer': str(t)}})
+            except botocore.exceptions.ClientError as e:
+                raise EnvironmentError('boto exception %s' % e)
 
     fs.rename(tempfile, cachefile)
     st = fs.stat(t.path)
