@@ -20,7 +20,7 @@ import stat
 
 import SCons.Action
 import SCons.CacheDir
-from SCons.Errors import EnvironmentError
+import SCons.Errors
 
 # fail early if SCONS_CACHE_S3_BUCKET is not set
 S3_BUCKET = os.environ['SCONS_CACHE_S3_BUCKET']
@@ -35,7 +35,7 @@ def make_cache_dir(fs, cachedir):
             # We may have received an exception because another process
             # has beaten us creating the directory.
             if not fs.isdir(cachedir):
-                raise EnvironmentError("Unable to create cache dir")
+                raise SCons.Errors.EnvironmentError("Unable to create cache dir")
 
 
 def CacheRetrieveFunc(target, source, env):
@@ -60,7 +60,7 @@ def CacheRetrieveFunc(target, source, env):
                 cd.CacheDebug('CacheRetrieve(%s):  %s not in s3\n', t, cachefile)
                 return 1
             else:
-                raise EnvironmentError('boto exception %s' % e)
+                raise SCons.Errors.EnvironmentError('boto exception %s' % e)
 
     cd.CacheDebug('CacheRetrieve(%s):  retrieving %s from disk cache\n', t, cachefile)
     if SCons.Action.execute_actions:
@@ -120,7 +120,9 @@ def CachePushFunc(target, source, env):
                 s3_client.upload_file(tempfile, S3_BUCKET, cache_key,
                                       ExtraArgs={'Metadata': {'VM-Layer': str(t)}})
             except botocore.exceptions.ClientError as e:
-                raise EnvironmentError('boto exception %s' % e)
+                # scons doesn't print errors raised here, but it does stop
+                print e
+                raise SCons.Errors.EnvironmentError('boto exception %s' % e)
 
     fs.rename(tempfile, cachefile)
     st = fs.stat(t.path)
