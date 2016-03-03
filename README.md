@@ -109,7 +109,7 @@ fi
 ' | sudo tee /etc/sysconfig/modules/nbd.modules
 sudo chmod +x /etc/sysconfig/modules/nbd.modules
 
-reboot
+sudo reboot
 ```
 
 Install other requirements:
@@ -118,19 +118,12 @@ Install other requirements:
 sudo yum install -y qemu-img scons cloud-utils
 ```
 
-Download the base image.  This needs to be done in the vm-layer-builder working copy.  You can mount the source in the VM using hgfs (see below), or install git and make a checkout in the VM.
-
-```
-sudo yum install -y wget
-wget http://cloud.centos.org/centos/6/images/CentOS-6-x86_64-GenericCloud-1510.qcow2.xz
-xz -d -k CentOS-6-x86_64-GenericCloud-1510.qcow2.xz
-```
-
 Optional: setup mDNS so you can ssh to the VM using `ssh vm-builder.local`:
 
 ```
 sudo hostnamectl set-hostname vm-builder
 sudo yum install -y avahi
+sudo yum remove firewalld
 sudo systemctl start avahi-daemon
 sudo systemctl enable avahi-daemon
 # fix slow DNS on ssh connection
@@ -159,7 +152,7 @@ Install qemu and setup bridge access (required for test-boot script)
 sudo yum install -y qemu qemu-kvm bridge-utils
 interface=$(cd /sys/class/net/ && ls -d en* | head -1)
 sudo cp /etc/sysconfig/network-scripts/{ifcfg-$interface,ifcfg-br0}
-sudo sed -i -e /UUID/d --e s/$interface/br0/ -e s/Ethernet/Bridge/ /etc/sysconfig/network-scripts/ifcfg-br0 
+sudo sed -i -e /UUID/d -e s/$interface/br0/ -e s/Ethernet/Bridge/ /etc/sysconfig/network-scripts/ifcfg-br0 
 echo DELAY=0 | sudo tee -a /etc/sysconfig/network-scripts/ifcfg-br0
 sudo sed -i -e /DEFROUTE/d -e /PEER/d -e /IPV4/d -e /IPV6/d -e 's/BOOTPROTO.*/BOOTPROTO=none/' /etc/sysconfig/network-scripts/ifcfg-$interface
 echo BRIDGE=br0 | sudo tee -a /etc/sysconfig/network-scripts/ifcfg-$interface
