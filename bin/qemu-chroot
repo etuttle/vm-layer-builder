@@ -179,14 +179,25 @@ if [[ -n "$mount_entrypoint" ]]; then
   chroot_add_mount "${entrypoint_dir}" "${image_dir}/mnt" --bind \
     || die "failed to mount entrypoint dir"
 
-  # setup extra mounts from chroot-mounts comments in entrypoint script
+  # setup extra bind mounts from chroot-bind-mount comments in entrypoint script
   IFS=$'\n'
-  mount_strs=($(sed -n 's/# chroot-mount \(.*\)/\1/p' "${command[0]}"))
+  mount_strs=($(sed -n 's/# chroot-bind-mount \(.*\)/\1/p' "${command[0]}"))
   unset IFS
   for mount_str in "${mount_strs[@]}"; do
     read source target <<< $mount_str
     mkdir -p "${image_dir}${target}"
     chroot_add_mount "${entrypoint_dir}/${source}" "${image_dir}${target}" --bind \
+      || die "failed mount from chroot-bind-mount comment"
+  done
+
+  # setup extra partition mounts from chroot-mount comments in entrypoint script
+  IFS=$'\n'
+  mount_strs=($(sed -n 's/# chroot-mount \(.*\)/\1/p' "${command[0]}"))
+  unset IFS
+  for mount_str in "${mount_strs[@]}"; do
+    read partition target <<< $mount_str
+    mkdir -p "${image_dir}${target}"
+    chroot_add_mount "${nbd_device}${partition}" "${image_dir}${target}" \
       || die "failed mount from chroot-mount comment"
   done
 
