@@ -158,6 +158,13 @@ sudo sed -i -e /DEFROUTE/d -e /PEER/d -e /IPV4/d -e /IPV6/d -e 's/BOOTPROTO.*/BO
 echo BRIDGE=br0 | sudo tee -a /etc/sysconfig/network-scripts/ifcfg-$interface
 sudo gpasswd -a $USER kvm
 echo "allow br0" | sudo tee -a /etc/qemu-kvm/bridge.conf
+# also disable predictable interface names, or the image may break on other VMWare installs:
+sudo mv /etc/sysconfig/network-scripts/{ifcfg-$interface,ifcfg-eth0}
+sudo sed -i -e "s/$interface/eth0/g" /etc/sysconfig/network-scripts/ifcfg-eth0
+sudo vi /etc/default/grub 
+# add net.ifnames=0 to GRUB_CMDLINE_LINUX
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+sudo yum erase -y biosdevname
 sudo reboot
 ```
 
