@@ -128,6 +128,11 @@ do
       extra_mount_targets=("$3" "${extra_mount_targets[@]}")
       shift 2
       ;;
+    -p|--partition-mount)
+      partition_mounts=("$2" "${partition_mounts[@]}")
+      partition_mount_targets=("$3" "${partition_mount_targets[@]}")
+      shift 2
+      ;;
     -d|--device)
       nbd_device="$2"
       shift
@@ -169,6 +174,12 @@ chroot_add_resolv_conf "$image_dir" || die "failed to setup resolv.conf"
 for ((i=0;i<${#extra_mounts[@]};++i)); do
   chroot_add_mount "${extra_mounts[i]}" "${image_dir}${extra_mount_targets[i]}" --bind \
     || die "failed to setup extra mount"
+done
+
+for ((i=0;i<${#partition_mounts[@]};++i)); do
+  mkdir -p "${image_dir}${partition_mount_targets[i]}"
+  chroot_add_mount "${nbd_device}${partition_mounts[i]}" "${image_dir}${partition_mount_targets[i]}" \
+    || die "failed to setup partition mount"
 done
 
 chroot_command=(unshare --fork --pid --mount-proc="$image_dir/proc" chroot "$image_dir")
