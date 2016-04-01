@@ -59,7 +59,11 @@ def create_targets(env):
         next_base = image
 
     if GetOption('flatten'):
-        env.MergeLayers('build/image.qcow2', [next_base])
+        nodes = env.MergeLayers('build/image.qcow2', [next_base])
+        # hack! monkey-patch scons so it doesn't waste time creating checksums for this huge file
+        import types, binascii, os
+        rand_hash = lambda x: binascii.b2a_hex(os.urandom(16))
+        nodes[0].get_content_hash = types.MethodType(rand_hash, nodes[0])
     else:
         env.LinkLayers('build/image.qcow2', [next_base])
 
