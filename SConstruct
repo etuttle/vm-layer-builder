@@ -7,6 +7,8 @@ CacheDir('build_cache')
 AddOption('--nbd', type='string', metavar='DEVICE',
           help='nbd device to use for mounting images')
 
+AddOption('--last', type='string', metavar='layer', help='Stop on <layer>')
+
 if not GetOption('nbd'):
     print "-" * 35 + "> Missing required parameter: --nbd"
     Return()
@@ -35,6 +37,11 @@ def create_targets(env):
     """Creates the series of output targets"""
     next_base = download_base_image()
 
+    if GetOption('last'):
+        last = basename(GetOption('last').rstrip('/'))
+    else:
+        last = None
+
     for dir in get_layer_dirs():
         image = 'build/%s.qcow2' % dir
         build_layer = join(dir, 'build-layer')
@@ -57,6 +64,9 @@ def create_targets(env):
                     nodes[0].noshare = True
 
         next_base = image
+
+        if last == dir:
+            break
 
     if GetOption('flatten'):
         nodes = env.MergeLayers('build/image.qcow2', [next_base])
