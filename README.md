@@ -72,7 +72,7 @@ be cached), followed by noshare layers, followed by nocache layers.
 ## Requirements
 
 * `nbd` kernel module
-* `qemu-img` (developed on 1.5.3 from CentOS 7)
+* `qemu-img` (developed on 1.5.3 from CentOS 7 using the Enterprise Virtualization version)
 * `scons` (developed on 2.3.0 from Centos 7)
 * `cloud-utils`, specifically the `growpart` command
 * password-less sudo access
@@ -115,7 +115,8 @@ sudo reboot
 Install other requirements:
 
 ```
-sudo yum install -y qemu-img scons cloud-utils
+sudo yum install -y centos-release-qemu-ev
+sudo yum install -y qemu-img-ev scons cloud-utils
 ```
 
 Optional: setup mDNS so you can ssh to the VM using `ssh vm-builder.local`:
@@ -149,7 +150,7 @@ sudo ./vmware-install.pl -f -d
 Install qemu and setup bridge access (required for test-boot script)
 
 ```
-sudo yum install -y qemu qemu-kvm bridge-utils
+sudo yum install -y qemu qemu-kvm-ev bridge-utils
 interface=$(cd /sys/class/net/ && ls -d en* | head -1)
 sudo cp /etc/sysconfig/network-scripts/{ifcfg-$interface,ifcfg-br0}
 sudo sed -i -e /UUID/d -e s/$interface/br0/ -e s/Ethernet/Bridge/ /etc/sysconfig/network-scripts/ifcfg-br0 
